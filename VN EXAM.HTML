@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Kiểm Tra Tiếng Trung Cơ Bản (Cơ xưởng)</title>
+  <style>
+    :root { --primary: #009688; --bg: #f0f2f5; --card: #fff; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #333; }
+    .screen { display: none; max-width: 600px; margin: 0 auto; }
+    .screen.active { display: block; animation: fadeIn 0.4s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    .card { background: var(--card); border-radius: 15px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); text-align: center; margin-bottom: 20px; }
+    h1 { color: var(--primary); font-size: 24px; margin-bottom: 10px; }
+    h2 { font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+    
+    .input-group { margin-bottom: 15px; text-align: left; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+    input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+    
+    .btn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 10px; font-size: 18px; width: 100%; cursor: pointer; margin-top: 10px; font-weight: bold; }
+    .btn:active { transform: scale(0.98); }
+    .btn-audio { background: #e0f2f1; color: #00796b; border: 2px solid #00796b; margin: 10px 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .btn-record { background: #ffecb3; color: #ff6f00; border: 2px solid #ff6f00; }
+    .btn-record.recording { background: #ffccbc; animation: pulse 1s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+    .question-text { font-size: 20px; font-weight: bold; margin: 15px 0; color: #d32f2f; }
+    .question-viet { font-size: 16px; color: #555; margin-bottom: 20px; font-style: italic; }
+    
+    .option-btn { background: #fff; border: 2px solid #ddd; padding: 15px; margin: 8px 0; border-radius: 10px; font-size: 18px; width: 100%; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .option-btn.selected { border-color: var(--primary); background: #e0f2f1; }
+    .icon-play { font-size: 24px; }
+
+    .progress-bar { height: 8px; background: #ddd; border-radius: 4px; margin: 20px 0; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+
+    .admin-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+    .admin-table th, .admin-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    .admin-table th { background: #f5f5f5; }
+    .audio-player { width: 100%; margin-top: 5px; }
+  </style>
+</head>
+<body>
+
+  <!-- 1. 登录页 -->
+  <div id="loginScreen" class="screen active">
+    <div class="card">
+      <h1>🇻🇳 Kiểm Tra Tiếng Trung<br><span style="font-size:16px;color:#666">车间基础中文测试 (0.5级)</span></h1>
+      <p style="color:#666; margin-bottom:20px">Nghe và chọn đáp án đúng / Nghe và đọc lại</p>
+      
+      <div class="input-group">
+        <label>Họ và tên (姓名):</label>
+        <input type="text" id="userName" placeholder="Ví dụ: Nguyen Van A">
+      </div>
+      <div class="input-group">
+        <label>Mã nhân viên (工号):</label>
+        <input type="text" id="userId" placeholder="Ví dụ: VN001">
+      </div>
+      <div class="input-group">
+        <label>Bộ phận (部门):</label>
+        <select id="userDept">
+          <option value="weaving">Dệt (织造)</option>
+          <option value="dyeing">Nhuộm (染整)</option>
+          <option value="other">Khác (其他)</option>
+        </select>
+      </div>
+      <button class="btn" onclick="startTest()">Bắt đầu làm bài (开始考试)</button>
+      <p style="margin-top:15px; font-size:12px; color:#999" onclick="showAdmin()">🔒 Quản lý xem điểm (HR入口)</p>
+    </div>
+  </div>
+
+  <!-- 2. 考试页 -->
+  <div id="testScreen" class="screen">
+    <div class="progress-bar"><div class="progress-fill" id="progressBar"></div></div>
+    <div class="card">
+      <div id="qContainer">
+        <!-- 动态生成题目 -->
+      </div>
+      
+      <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px;">
+        <p style="font-size:14px; color:#666; margin-bottom:10px">🎤 Bước 2: Nghe và đọc lại (第二步：听并跟读录音)</p>
+        <button class="btn btn-record" id="recordBtn" onmousedown="startRecord()" onmouseup="stopRecord()" ontouchstart="startRecord()" ontouchend="stopRecord()">
+          Giữ để ghi âm (按住录音)
+        </button>
+        <audio id="playBack" controls style="width:100%; margin-top:10px; display:none"></audio>
+      </div>
+
+      <button class="btn" id="nextBtn" onclick="nextQuestion()" style="margin-top:20px; background:#555">Câu tiếp theo (下一题)</button>
+    </div>
+  </div>
+
+  <!-- 3. 结果页 -->
+  <div id="resultScreen" class="screen">
+    <div class="card">
+      <h1>Hoàn thành! (完成)</h1>
+      <div style="font-size:40px; font-weight:bold; color:var(--primary)" id="finalScore">0</div>
+      <p>Điểm số (分数)</p>
+      <div id="passBadge" style="padding:10px; border-radius:5px; color:white; display:inline-block; margin:10px 0"></div>
+      <p id="resultText" style="color:#666"></p>
+      <button class="btn" onclick="location.reload()">Quay lại (返回)</button>
+    </div>
+  </div>
+
+  <!-- 4. 后台管理 -->
+  <div id="adminScreen" class="screen">
+    <div class="card">
+      <h2>📊 Bảng điểm (成绩单)</h2>
+      <input type="password" id="adminPwd" placeholder="Mật khẩu (密码: 123456)" style="margin-bottom:10px">
+      <button class="btn" onclick="checkAdmin()">Xem (查看)</button>
+      <div id="adminData" style="display:none; margin-top:20px; overflow-x:auto">
+        <table class="admin-table">
+          <thead><tr><th>Tên</th><th>Mã</th><th>Bộ phận</th><th>Điểm</th><th>Ghi âm</th></tr></thead>
+          <tbody id="scoreTable"></tbody>
+        </table>
+        <button class="btn" onclick="exportCSV()" style="margin-top:10px; background:#673ab7">Xuất Excel (导出)</button>
+        <button class="btn" onclick="clearData()" style="margin-top:5px; background:#f44336">Xóa dữ liệu (清空)</button>
+      </div>
+      <button class="btn" onclick="location.reload()" style="margin-top:10px; background:#999">Quay lại (返回)</button>
+    </div>
+  </div>
+
+<script>
+  // === 题库配置 (难度：HSK前置 - 单词/短语识别) ===
+  // type: 'listen' (听音选义) | 'speak' (跟读模拟-此处简化为录音留档)
+  const questionsDB = {
+    common: [
+      { id: 1, zh: "停机", vi: "Dừng máy", audio: "停机", options: [{zh:"Dừng máy", correct:true}, {zh:"Mở máy", correct:false}, {zh:"Sửa chữa", correct:false}] },
+      { id: 2, zh: "安全帽", vi: "Mũ bảo hộ", audio: "安全帽", options: [{zh:"Găng tay", correct:false}, {zh:"Mũ bảo hộ", correct:true}, {zh:"Giày", correct:false}] },
+      { id: 3, zh: "禁止吸烟", vi: "Cấm hút thuốc", audio: "禁止吸烟", options: [{zh:"Cấm hút thuốc", correct:true}, {zh:"Cẩn thận lửa", correct:false}, {zh:"Thoát hiểm", correct:false}] },
+      { id: 4, zh: "洗手", vi: "Rửa tay", audio: "洗手", options: [{zh:"Rửa mặt", correct:false}, {zh:"Rửa tay", correct:true}, {zh:"Uống nước", correct:false}] },
+      { id: 5, zh: "小心地滑", vi: "Cẩn thận sàn trơn", audio: "小心地滑", options: [{zh:"Cẩn thận điện giật", correct:false}, {zh:"Cẩn thận sàn trơn", correct:true}, {zh:"Đi nhanh lên", correct:false}] }
+    ],
+    weaving: [
+      { id: 6, zh: "断经", vi: "Đứt sợi dọc", audio: "断经", options: [{zh:"Đứt sợi ngang", correct:false}, {zh:"Đứt sợi dọc", correct:true}, {zh:"Thủng vải", correct:false}] },
+      { id: 7, zh: "换纱", vi: "Thay ống sợi", audio: "换纱", options: [{zh:"Thay kim", correct:false}, {zh:"Thay dầu", correct:false}, {zh:"Thay ống sợi", correct:true}] },
+      { id: 8, zh: "开机", vi: "Khởi động máy", audio: "开机", options: [{zh:"Tắt máy", correct:false}, {zh:"Khởi động máy", correct:true}, {zh:"Vệ sinh máy", correct:false}] },
+      { id: 9, zh: "布匹", vi: "Cây vải", audio: "布匹", options: [{zh:"Cây vải", correct:true}, {zh:"Sợi thô", correct:false}, {zh:"Thuốc nhuộm", correct:false}] },
+      { id: 10, zh: "清洁", vi: "Vệ sinh/Làm sạch", audio: "清洁", options: [{zh:"Sửa chữa", correct:false}, {zh:"Vệ sinh/Làm sạch", correct:true}, {zh:"Nghỉ ngơi", correct:false}] }
+    ],
+    dyeing: [
+      { id: 6, zh: "加料", vi: "Thêm hóa chất", audio: "加料", options: [{zh:"Thêm nước", correct:false}, {zh:"Thêm hóa chất", correct:true}, {zh:"Lấy vải ra", correct:false}] },
+      { id: 7, zh: "温度", vi: "Nhiệt độ", audio: "温度", options: [{zh:"Thời gian", correct:false}, {zh:"Nhiệt độ", correct:true}, {zh:"Áp suất", correct:false}] },
+      { id: 8, zh: "颜色", vi: "Màu sắc", audio: "颜色", options: [{zh:"Màu sắc", correct:true}, {zh:"Kích cỡ", correct:false}, {zh:"Trọng lượng", correct:false}] },
+      { id: 9, zh: "水洗", vi: "Giặt/Giũ nước", audio: "水洗", options: [{zh:"Sấy khô", correct:false}, {zh:"Giặt/Giũ nước", correct:true}, {zh:"Nhuộm màu", correct:false}] },
+      { id: 10, zh: "定型", vi: "Định hình (Set)", audio: "定型", options: [{zh:"Định hình", correct:true}, {zh:"Cuộn vải", correct:false}, {zh:"Kiểm tra", correct:false}] }
+    ],
+    other: [
+      { id: 6, zh: "叉车", vi: "Xe nâng", audio: "叉车", options: [{zh:"Xe tải", correct:false}, {zh:"Xe nâng", correct:true}, {zh:"Xe đẩy", correct:false}] },
+      { id: 7, zh: "合格", vi: "Đạt/Hợp cách", audio: "合格", options: [{zh:"Hỏng", correct:false}, {zh:"Đạt/Hợp cách", correct:true}, {zh:"Chờ kiểm tra", correct:false}] },
+      { id: 8, zh: "数量", vi: "Số lượng", audio: "数量", options: [{zh:"Giá tiền", correct:false}, {zh:"Số lượng", correct:true}, {zh:"Ngày tháng", correct:false}] },
+      { id: 9, zh: "仓库", vi: "Kho hàng", audio: "仓库", options: [{zh:"Văn phòng", correct:false}, {zh:"Kho hàng", correct:true}, {zh:"Nhà ăn", correct:false}] },
+      { id: 10, zh: "下班", vi: "Tan ca", audio: "下班", options: [{zh:"Đi làm", correct:false}, {zh:"Nghỉ trưa", correct:false}, {zh:"Tan ca", correct:true}] }
+    ]
+  };
+
+  let currentQuestions = [];
+  let currentIndex = 0;
+  let score = 0;
+  let mediaRecorder;
+  let audioChunks = [];
+  let currentAudioBlob = null;
+
+  // === 核心逻辑 ===
+  function startTest() {
+    const name = document.getElementById('userName').value;
+    const id = document.getElementById('userId').value;
+    if(!name || !id) return alert("Vui lòng nhập tên và mã số! (请填写姓名工号)");
+
+    const dept = document.getElementById('userDept').value;
+    // 组卷：5道通用 + 5道专业
+    let specificQs = questionsDB[dept] || questionsDB.other;
+    // 随机打乱
+    currentQuestions = [...questionsDB.common, ...specificQs].sort(() => Math.random() - 0.5);
+    
+    currentIndex = 0;
+    score = 0;
+    showScreen('testScreen');
+    renderQuestion();
+  }
+
+  function renderQuestion() {
+    const q = currentQuestions[currentIndex];
+    const container = document.getElementById('qContainer');
+    
+    // 进度条
+    document.getElementById('progressBar').style.width = ((currentIndex) / currentQuestions.length * 100) + '%';
+
+    // 题目区域
+    container.innerHTML = `
+      <div class="question-text">${q.zh}</div>
+      <div class="question-viet">${q.vi}</div>
+      <button class="btn btn-audio" onclick="playAudio('${q.audio}')">
+        <span class="icon-play">🔊</span> Bấm để nghe (点击听中文)
+      </button>
+      <div id="optionsList"></div>
+    `;
+
+    // 选项区域 (只显示越南语意思，让员工选对应的中文含义，或者反过来？
+    // 修正逻辑：为了考听力，播放中文，选项显示【越南语】，让员工选意思。
+    // 这样不需要员工认识汉字，只需要听懂声音对应的工作指令。)
+    
+    const optsDiv = document.getElementById('optionsList');
+    // 打乱选项
+    let shuffledOpts = [...q.options].sort(() => Math.random() - 0.5);
+    
+    shuffledOpts.forEach((opt, idx) => {
+      const btn = document.createElement('div');
+      btn.className = 'option-btn';
+      btn.innerHTML = `<span>${opt.zh}</span>`; // 显示越南语
+      btn.onclick = () => selectOption(btn, opt.correct);
+      optsDiv.appendChild(btn);
+    });
+
+    // 重置录音区
+    document.getElementById('playBack').style.display = 'none';
+    document.getElementById('playBack').src = "";
+    currentAudioBlob = null;
+    
+    // 按钮状态
+    const nextBtn = document.getElementById('nextBtn');
+    nextBtn.innerText = (currentIndex === currentQuestions.length - 1) ? "Nộp bài (交卷)" : "Câu tiếp theo (下一题)";
+  }
+
+  function playAudio(text) {
+    // 使用浏览器自带TTS
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'zh-CN'; // 强制中文
+    utterance.rate = 0.8; // 语速稍慢，适合初学者
+    window.speechSynthesis.speak(utterance);
+  }
+
+  let selectedCorrect = false;
+  function selectOption(el, isCorrect) {
+    // 清除其他选中
+    document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedCorrect = isCorrect;
+  }
+
+  // === 录音功能 ===
+  async function startRecord() {
+    if (!navigator.mediaDevices) return alert("Trình duyệt không hỗ trợ ghi âm (浏览器不支持录音)");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      
+      mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+      mediaRecorder.onstop = () => {
+        currentAudioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const audioUrl = URL.createObjectURL(currentAudioBlob);
+        const player = document.getElementById('playBack');
+        player.src = audioUrl;
+        player.style.display = 'block';
+      };
+      
+      mediaRecorder.start();
+      document.getElementById('recordBtn').classList.add('recording');
+      document.getElementById('recordBtn').innerText = "Đang ghi... (录音中...)";
+    } catch(e) { console.error(e); alert("Cần cấp quyền truy cập Micro (请允许麦克风权限)"); }
+  }
+
+  function stopRecord() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      document.getElementById('recordBtn').classList.remove('recording');
+      document.getElementById('recordBtn').innerText = "Giữ để ghi âm (按住录音)";
+    }
+  }
+
+  function nextQuestion() {
+    // 计分
+    if (selectedCorrect) score += 10; // 每题10分
+    
+    // 保存录音数据 (临时存在内存，最后一起存)
+    currentQuestions[currentIndex].userAudio = currentAudioBlob;
+    currentQuestions[currentIndex].userSelectedCorrect = selectedCorrect;
+
+    selectedCorrect = false;
+    currentIndex++;
+
+    if (currentIndex < currentQuestions.length) {
+      renderQuestion();
+    } else {
+      finishExam();
+    }
+  }
+
+  function finishExam() {
+    showScreen('resultScreen');
+    document.getElementById('finalScore').innerText = score;
+    const badge = document.getElementById('passBadge');
+    const msg = document.getElementById('resultText');
+    
+    if (score >= 70) {
+      badge.style.background = "#4caf50";
+      badge.innerText = "ĐẠT (及格)";
+      msg.innerText = "Chúc mừng! Bạn đã vượt qua bài kiểm tra.";
+    } else {
+      badge.style.background = "#f44336";
+      badge.innerText = "KHÔNG ĐẠT (不及格)";
+      msg.innerText = "Hãy cố gắng hơn nhé! (请继续加油)";
+    }
+
+    saveResult();
+  }
+
+  // === 数据保存 ===
+  function saveResult() {
+    const result = {
+      name: document.getElementById('userName').value,
+      id: document.getElementById('userId').value,
+      dept: document.getElementById('userDept').options[document.getElementById('userDept').selectedIndex].text,
+      score: score,
+      date: new Date().toLocaleString(),
+      // 将录音转为Base64存储 (注意：LocalStorage容量有限，仅存最后一题或简化处理)
+      // 实际生产中建议上传服务器，这里仅演示存储元数据
+      hasAudio: currentQuestions.some(q => q.userAudio) 
+    };
+    
+    let records = JSON.parse(localStorage.getItem('vn_exam_results') || '[]');
+    records.push(result);
+    localStorage.setItem('vn_exam_results', JSON.stringify(records));
+  }
+
+  // === 辅助函数 ===
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function showAdmin() { showScreen('adminScreen'); }
+  
+  function checkAdmin() {
+    if(document.getElementById('adminPwd').value === '123456') {
+      document.getElementById('adminData').style.display = 'block';
+      loadTable();
+    } else alert("Sai mật khẩu!");
+  }
+
+  function loadTable() {
+    const tbody = document.getElementById('scoreTable');
+    tbody.innerHTML = '';
+    const records = JSON.parse(localStorage.getItem('vn_exam_results') || '[]');
+    records.reverse().forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.name}</td>
+        <td>${r.id}</td>
+        <td>${r.dept}</td>
+        <td style="color:${r.score>=70?'green':'red'}; font-weight:bold">${r.score}</td>
+        <td>${r.hasAudio ? 'Có (有)' : 'Không'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function clearData() {
+    if(confirm("Xóa hết dữ liệu?")) {
+      localStorage.removeItem('vn_exam_results');
+      loadTable();
+    }
+  }
+
+  function exportCSV() {
+    const records = JSON.parse(localStorage.getItem('vn_exam_results') || '[]');
+    let csv = "Name,ID,Dept,Score,Date\n";
+    records.forEach(r => csv += `${r.name},${r.id},${r.dept},${r.score},${r.date}\n`);
+    const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = "Diem_Thi_Tieng_Trung.csv";
+    a.click();
+  }
+</script>
+</body>
+</html>
